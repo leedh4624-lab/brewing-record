@@ -344,6 +344,16 @@
       text-align: center;
     }
 
+    .recipe-ratio input,
+    .recipe-temp input {
+      max-width: none;
+      width: 100%;
+    }
+
+    .recipe-grind .grind-row {
+      max-width: 520px;
+    }
+
     input[type="range"] {
       padding: 0;
       accent-color: var(--teal);
@@ -356,13 +366,19 @@
 
     .step-row {
       display: grid;
-      grid-template-columns: 96px 96px 1fr 38px;
+      grid-template-columns: 156px 96px 1fr 38px;
       gap: 8px;
       align-items: center;
     }
 
     .step-row input {
       min-width: 0;
+    }
+
+    .time-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
     }
 
     .step-preview {
@@ -698,19 +714,19 @@
               <label>물량 g
                 <input name="waterAmount" type="number" min="0" step="1" placeholder="240" />
               </label>
-              <label>비율
-                <input name="ratio" id="ratioInput" placeholder="원두량과 물량 입력 시 자동 계산" readonly />
+              <label class="recipe-ratio">비율
+                <input name="ratio" id="ratioInput" placeholder="자동" readonly />
               </label>
-              <label>분쇄도
-                <div class="grind-row">
-                  <input name="grindMin" type="number" min="0" step="10" placeholder="000" aria-label="최소 마이크론" />
-                  <span class="tilde">~</span>
-                  <input name="grindMax" type="number" min="0" step="10" placeholder="000" aria-label="최대 마이크론" />
-                  <span>마이크론</span>
-                </div>
-              </label>
-              <label>물온도 C
+              <label class="recipe-temp">물온도 C
                 <input name="waterTemp" type="number" min="0" max="100" step="1" placeholder="92" />
+              </label>
+              <label class="wide recipe-grind">분쇄도
+                <div class="grind-row">
+                  <input name="grindMin" type="number" min="0" step="10" placeholder="000" aria-label="최소 μm" />
+                  <span class="tilde">~</span>
+                  <input name="grindMax" type="number" min="0" step="10" placeholder="000" aria-label="최대 μm" />
+                  <span>μm</span>
+                </div>
               </label>
               <div class="wide step-builder">
                 <label>추출 단계</label>
@@ -884,8 +900,12 @@
     function createStepRow(step = {}) {
       const row = document.createElement("div");
       row.className = "step-row";
+      const time = parseStepTime(step.time);
       row.innerHTML = `
-        <input type="text" inputmode="numeric" data-step-time placeholder="시간 0:30" value="${escapeHtml(step.time || "")}" aria-label="단계 시간" />
+        <div class="time-row" aria-label="단계 시간">
+          <input type="number" min="0" step="1" data-step-minutes placeholder="분" value="${escapeHtml(time.minutes)}" aria-label="분" />
+          <input type="number" min="0" max="59" step="5" data-step-seconds placeholder="초" value="${escapeHtml(time.seconds)}" aria-label="초" />
+        </div>
         <input type="number" min="0" step="1" data-step-water placeholder="물양 g" value="${escapeHtml(step.water || "")}" aria-label="단계 물양" />
         <input type="text" data-step-note placeholder="메모 선택: 뜸, 1차 푸어" value="${escapeHtml(step.note || "")}" aria-label="단계 메모" />
         <button class="mini-button" type="button" data-action="remove-step" title="단계 삭제">삭제</button>
@@ -904,11 +924,37 @@
     function collectRecipeSteps() {
       return [...recipeSteps.querySelectorAll(".step-row")]
         .map((row) => ({
-          time: row.querySelector("[data-step-time]").value.trim(),
+          time: formatStepTime(
+            row.querySelector("[data-step-minutes]").value,
+            row.querySelector("[data-step-seconds]").value
+          ),
           water: row.querySelector("[data-step-water]").value.trim(),
           note: row.querySelector("[data-step-note]").value.trim()
         }))
         .filter((step) => step.time || step.water || step.note);
+    }
+
+    function parseStepTime(value = "") {
+      const text = String(value).trim();
+      if (!text) return { minutes: "", seconds: "" };
+      if (text.includes(":")) {
+        const [minutes, seconds] = text.split(":");
+        return {
+          minutes: String(Number(minutes) || 0),
+          seconds: String(Number(seconds) || 0)
+        };
+      }
+      return { minutes: String(Number(text) || 0), seconds: "0" };
+    }
+
+    function formatStepTime(minutes, seconds) {
+      if (String(minutes).trim() === "" && String(seconds).trim() === "") return "";
+      const min = Number(minutes);
+      const sec = Number(seconds);
+      if (!Number.isFinite(min) && !Number.isFinite(sec)) return "";
+      const safeMin = Number.isFinite(min) && min > 0 ? Math.floor(min) : 0;
+      const safeSec = Number.isFinite(sec) && sec > 0 ? Math.min(Math.floor(sec), 59) : 0;
+      return `${safeMin}:${String(safeSec).padStart(2, "0")}`;
     }
 
     function stepToText(step, index) {
@@ -982,9 +1028,9 @@
     }
 
     function formatGrindSize(grindMin, grindMax) {
-      if (grindMin && grindMax) return `${grindMin}~${grindMax} 마이크론`;
-      if (grindMin) return `${grindMin} 마이크론 이상`;
-      if (grindMax) return `${grindMax} 마이크론 이하`;
+      if (grindMin && grindMax) return `${grindMin}~${grindMax} μm`;
+      if (grindMin) return `${grindMin} μm+`;
+      if (grindMax) return `up to ${grindMax} μm`;
       return "";
     }
 
