@@ -13,7 +13,7 @@
         <div class="auth-mark">BJ</div>
         <p class="auth-kicker">Bean Journal</p>
         <h1>나만의 커피 기록장에 로그인하세요</h1>
-        <p>원두, 레시피, 맛 기록을 같은 브라우저에 이어서 관리할 수 있습니다.</p>
+        <p>원두, 레시피, 오늘의 커피를 같은 브라우저에 이어서 관리할 수 있습니다.</p>
       </div>
 
       <div class="auth-panel">
@@ -59,17 +59,16 @@
         <div class="brand-mark">BJ</div>
         <div>
           <strong>Bean Journal</strong>
-          <span>원두, 레시피, 맛 기록</span>
+          <span>원두, 레시피, 오늘의 커피</span>
         </div>
       </div>
       <nav aria-label="기록 유형">
         <button class="nav-button active" type="button" data-view="beans"><span>01</span><span>원두 정보</span></button>
         <button class="nav-button" type="button" data-view="recipes"><span>02</span><span>레시피</span></button>
-        <button class="nav-button" type="button" data-view="tastings"><span>03</span><span>맛 기록</span></button>
-        <button class="nav-button" type="button" data-view="all"><span>04</span><span>전체 기록</span></button>
+        <button class="nav-button" type="button" data-view="tastings"><span>03</span><span>오늘의 커피</span></button>
       </nav>
       <div class="side-note">
-        원두를 먼저 저장한 뒤 레시피와 맛 기록에서 연결하면, 나중에 어떤 조건이 좋은 컵을 만들었는지 훨씬 쉽게 비교할 수 있습니다.
+        원두를 먼저 저장한 뒤 레시피와 오늘의 커피에서 연결하면, 나중에 어떤 조건이 좋은 컵을 만들었는지 훨씬 쉽게 비교할 수 있습니다.
       </div>
     </aside>
 
@@ -81,34 +80,23 @@
         </div>
         <div class="actions">
           <span class="user-chip" id="currentUserName"></span>
-          <button class="button" type="button" id="exportButton">내보내기</button>
-          <button class="button danger" type="button" id="clearButton">전체 삭제</button>
-          <button class="button" type="button" id="logoutButton">로그아웃</button>
+          <div class="settings">
+            <button class="icon-button" type="button" id="settingsButton" aria-label="설정" title="설정" aria-haspopup="true" aria-expanded="false">⚙</button>
+            <div class="settings-menu hidden" id="settingsMenu" role="menu">
+              <label class="settings-item switch-item">
+                <span>다크 모드</span>
+                <input type="checkbox" id="darkModeToggle" role="switch" />
+                <span class="switch" aria-hidden="true"></span>
+              </label>
+              <div class="settings-divider"></div>
+              <button class="settings-item" type="button" id="exportButton" role="menuitem">내보내기</button>
+              <button class="settings-item" type="button" id="logoutButton" role="menuitem">로그아웃</button>
+              <div class="settings-divider"></div>
+              <button class="settings-item danger" type="button" id="clearButton" role="menuitem">전체 삭제</button>
+            </div>
+          </div>
         </div>
       </div>
-
-      <section class="dashboard" aria-label="요약">
-        <div class="metric">
-          <span>저장된 원두</span>
-          <strong id="beanCount">0</strong>
-          <small id="latestBean">아직 원두가 없습니다</small>
-        </div>
-        <div class="metric">
-          <span>레시피 수</span>
-          <strong id="recipeCount">0</strong>
-          <small id="favoriteRatio">비율 기록 대기</small>
-        </div>
-        <div class="metric">
-          <span>맛 기록</span>
-          <strong id="tastingCount">0</strong>
-          <small id="avgScore">평점 대기</small>
-        </div>
-        <div class="metric">
-          <span>최근 피드백</span>
-          <strong id="latestScore">-</strong>
-          <small id="latestFeedback">새 컵을 기록해보세요</small>
-        </div>
-      </section>
 
       <section class="workspace">
         <section class="panel" id="formPanel">
@@ -117,7 +105,7 @@
               <h2 id="formTitle">원두 정보 추가</h2>
               <p id="formHelp">로스터리, 원산지, 품종, 가공방식, 로스팅 포인트를 저장합니다.</p>
             </div>
-            <button class="button" type="button" id="newButton">새 기록</button>
+            <button class="icon-button" type="button" id="newButton" aria-label="새 기록" title="새 기록">+</button>
           </div>
 
           <form id="beanForm" data-form="beans">
@@ -142,7 +130,6 @@
                   <option>Natural</option>
                   <option>Honey</option>
                   <option>Anaerobic</option>
-                  <option>Carbonic Maceration</option>
                   <option>Blend</option>
                 </select>
               </label>
@@ -226,14 +213,26 @@
                   <strong id="scoreValue">7</strong>
                 </div>
               </label>
-              <label class="wide">맛 기록
+              <div class="wide cupnote-builder">
+                <label for="cupNoteInput">컵노트</label>
+                <svg class="cupnote-wheel" id="cupNoteWheel" viewBox="-110 -110 220 220" role="group" aria-label="컵노트 향미 휠"></svg>
+                <div class="cupnote-input-row">
+                  <label class="cupnote-current" id="cupNoteCurrent" title="색상 직접 선택">
+                    <input type="color" id="cupNoteCustomColor" aria-label="색상 직접 선택" />
+                  </label>
+                  <input id="cupNoteInput" type="text" autocomplete="off" />
+                  <button class="button" type="button" id="addCupNoteButton">추가</button>
+                </div>
+                <div class="cupnote-list" id="cupNoteList"></div>
+              </div>
+              <label class="wide">특징
                 <textarea name="flavor" required placeholder="산미, 단맛, 바디, 후미, 향미를 자유롭게 기록"></textarea>
               </label>
               <label class="wide">피드백
                 <textarea name="feedback" placeholder="다음 추출에서 바꿀 점: 분쇄도, 온도, 물줄기, 비율 등"></textarea>
               </label>
             </fieldset>
-            <button class="button primary" type="submit">맛 기록 저장</button>
+            <button class="button primary" type="submit">오늘의 커피 저장</button>
           </form>
         </section>
 
@@ -241,11 +240,10 @@
           <div class="tabs" role="tablist" aria-label="목록 필터">
             <button class="tab active" type="button" data-tab="beans">원두</button>
             <button class="tab" type="button" data-tab="recipes">레시피</button>
-            <button class="tab" type="button" data-tab="tastings">맛 기록</button>
-            <button class="tab" type="button" data-tab="all">전체</button>
+            <button class="tab" type="button" data-tab="tastings">오늘의 커피</button>
           </div>
           <div class="list-tools">
-            <input id="searchInput" type="search" placeholder="검색: 원두명, 로스터리, 메모, 맛 기록" />
+            <input id="searchInput" type="search" placeholder="검색: 원두명, 로스터리, 메모, 특징, 컵노트" />
             <select id="sortSelect">
               <option value="newest">최신순</option>
               <option value="oldest">오래된순</option>

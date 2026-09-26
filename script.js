@@ -1,6 +1,7 @@
     const STORAGE_KEY = "bean-journal-v1";
     const AUTH_USERS_KEY = "bean-journal-users-v1";
     const AUTH_SESSION_KEY = "bean-journal-session-v1";
+    const THEME_KEY = "bean-journal-theme-v1";
 
     const initialData = {
       beans: [],
@@ -18,6 +19,28 @@
       tastings: document.getElementById("tastingForm")
     };
 
+    const CUP_NOTE_WHEEL = [
+      { name: "플로럴", color: "#b07fd0", notes: [["라벤더", "#9b7fd6"], ["자스민", "#d6b4e6"], ["장미", "#e27a9e"], ["캐모마일", "#e3c35a"], ["홍차", "#a8573f"]] },
+      { name: "베리", color: "#d9486a", notes: [["딸기", "#e8475f"], ["라즈베리", "#d6336c"], ["블루베리", "#5b6fc4"], ["블랙베리", "#5d3b6e"]] },
+      { name: "과일", color: "#f0845f", notes: [["복숭아", "#f7a07a"], ["살구", "#f2a04a"], ["체리", "#c8283f"], ["사과", "#9cc155"], ["포도", "#8a4f9e"], ["건포도", "#7a3f3a"]] },
+      { name: "시트러스", color: "#f2a23c", notes: [["귤", "#f59331"], ["오렌지", "#f5a623"], ["레몬", "#eed23a"], ["자몽", "#ee7b62"], ["라임", "#9fc93c"]] },
+      { name: "달콤함", color: "#e3ad45", notes: [["꿀", "#e8a93a"], ["캐러멜", "#c98a3a"], ["흑설탕", "#a0673a"], ["메이플시럽", "#b8702e"], ["바닐라", "#ecd49a"]] },
+      { name: "너티", color: "#c49468", notes: [["아몬드", "#caa074"], ["헤이즐넛", "#a87b4f"], ["땅콩", "#d6a86a"]] },
+      { name: "초콜릿", color: "#7d4e35", notes: [["다크초콜릿", "#5a3526"], ["밀크초콜릿", "#93603f"], ["코코아", "#6e4330"]] },
+      { name: "스파이스", color: "#c0653c", notes: [["시나몬", "#b8653a"], ["정향", "#8e4a33"], ["후추", "#6e5a4e"]] },
+      { name: "그린", color: "#7fae6a", notes: [["녹차", "#8fb35a"], ["허브", "#5f9e5f"], ["풀", "#86c06a"]] },
+      { name: "발효", color: "#a4476a", notes: [["와인", "#8e2f4f"], ["위스키", "#b4743a"]] },
+      { name: "로스팅", color: "#8a7a6e", notes: [["곡물", "#c9a978"], ["토스트", "#a88455"], ["스모키", "#6f6660"]] }
+    ];
+
+    let cupNotes = [];
+    let selectedCupNoteColor = CUP_NOTE_WHEEL[0].color;
+
+    const cupNoteWheel = document.getElementById("cupNoteWheel");
+    const cupNoteCustomColor = document.getElementById("cupNoteCustomColor");
+    const cupNoteInput = document.getElementById("cupNoteInput");
+    const cupNoteList = document.getElementById("cupNoteList");
+
     const recipeSteps = document.getElementById("recipeSteps");
     const stepsText = document.getElementById("stepsText");
     const stepsPreview = document.getElementById("stepsPreview");
@@ -32,7 +55,7 @@
         help: "드리퍼, 필터, 비율, 분쇄도, 물온도와 추출 단계를 기록합니다."
       },
       tastings: {
-        title: "맛 기록 추가",
+        title: "오늘의 커피 추가",
         help: "추출 결과의 맛, 평점, 다음에 바꿀 피드백을 남깁니다."
       },
       all: {
@@ -197,9 +220,114 @@
       document.getElementById("scoreValue").textContent = "7";
       forms.tastings.elements.date.valueAsDate = new Date();
       setRecipeSteps([{ time: "0:00", water: "", note: "뜸" }]);
+      setCupNotes([]);
       editing = { type: null, id: null };
       updateSelects();
       updateSubmitLabels();
+    }
+
+    function safeColor(color) {
+      return /^#[0-9a-f]{6}$/i.test(color) ? color : CUP_NOTE_WHEEL[0].color;
+    }
+
+    function polar(radius, degree) {
+      const angle = (degree - 90) * Math.PI / 180;
+      return [+(radius * Math.cos(angle)).toFixed(2), +(radius * Math.sin(angle)).toFixed(2)];
+    }
+
+    function arcPath(inner, outer, start, end) {
+      const large = end - start > 180 ? 1 : 0;
+      const [x1, y1] = polar(outer, start);
+      const [x2, y2] = polar(outer, end);
+      const [x3, y3] = polar(inner, end);
+      const [x4, y4] = polar(inner, start);
+      return `M${x1} ${y1} A${outer} ${outer} 0 ${large} 1 ${x2} ${y2} L${x3} ${y3} A${inner} ${inner} 0 ${large} 0 ${x4} ${y4}Z`;
+    }
+
+    function textColorFor(hex) {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+      return (r * 299 + g * 587 + b * 114) / 1000 > 165 ? "#4a3326" : "#fffaf3";
+    }
+
+    function wheelLabel(text, radius, middle, size, fill, weight) {
+      const [x, y] = polar(radius, middle);
+      const rotate = middle < 180 ? middle - 90 : middle + 90;
+      return `<text x="${x}" y="${y}" transform="rotate(${rotate.toFixed(2)} ${x} ${y})" font-size="${size}" font-weight="${weight}" fill="${fill}">${text}</text>`;
+    }
+
+    function renderCupNoteWheel() {
+      const total = CUP_NOTE_WHEEL.reduce((sum, group) => sum + group.notes.length, 0);
+      const step = 360 / total;
+      let angle = 0;
+      let segments = "";
+      let labels = "";
+
+      CUP_NOTE_WHEEL.forEach((group) => {
+        const start = angle;
+        const end = start + group.notes.length * step;
+        segments += `<path class="wheel-seg" d="${arcPath(24, 58, start, end)}" fill="${group.color}" data-color="${group.color}" role="button" tabindex="0" aria-label="${group.name}"><title>${group.name}</title></path>`;
+        labels += wheelLabel(group.name, 41, (start + end) / 2, 7, textColorFor(group.color), 800);
+
+        group.notes.forEach(([note, color], index) => {
+          const noteStart = start + index * step;
+          segments += `<path class="wheel-seg" d="${arcPath(58, 106, noteStart, noteStart + step)}" fill="${color}" data-color="${color}" data-note="${note}" role="button" tabindex="0" aria-label="${note}"><title>${note}</title></path>`;
+          labels += wheelLabel(note, 82, noteStart + step / 2, note.length > 4 ? 5.6 : 6.4, textColorFor(color), 700);
+        });
+        angle = end;
+      });
+
+      cupNoteWheel.innerHTML = `
+        <g class="wheel-segs">${segments}</g>
+        <g class="wheel-labels">${labels}</g>
+        <circle class="wheel-center" r="22" id="wheelCenter"></circle>
+      `;
+      updateCupNoteColor();
+    }
+
+    function updateCupNoteColor() {
+      document.getElementById("cupNoteCurrent").style.setProperty("--note-color", selectedCupNoteColor);
+      document.getElementById("wheelCenter").style.fill = selectedCupNoteColor;
+      cupNoteCustomColor.value = selectedCupNoteColor;
+    }
+
+    function selectWheelSegment(segment) {
+      cupNoteWheel.querySelectorAll(".wheel-seg.selected").forEach((item) => item.classList.remove("selected"));
+      segment.classList.add("selected");
+      segment.parentNode.appendChild(segment);
+      selectedCupNoteColor = segment.dataset.color;
+      if (segment.dataset.note) cupNoteInput.value = segment.dataset.note;
+      updateCupNoteColor();
+      cupNoteInput.focus();
+    }
+
+    function cupNoteChip(note, removable = false, index = 0) {
+      const remove = removable
+        ? `<button type="button" class="cupnote-remove" data-index="${index}" aria-label="${escapeHtml(note.text)} 삭제">×</button>`
+        : "";
+      return `<span class="cupnote" style="--note-color: ${safeColor(note.color)}">${escapeHtml(note.text)}${remove}</span>`;
+    }
+
+    function renderCupNoteList() {
+      cupNoteList.innerHTML = cupNotes.length
+        ? cupNotes.map((note, index) => cupNoteChip(note, true, index)).join("")
+        : `<span class="cupnote-empty">휠에서 색을 고르고 향미를 입력한 뒤 추가하세요.</span>`;
+    }
+
+    function setCupNotes(notes = []) {
+      cupNotes = notes.map((note) => ({ color: safeColor(note.color), text: String(note.text || "") })).filter((note) => note.text);
+      cupNoteInput.value = "";
+      renderCupNoteList();
+    }
+
+    function addCupNotes() {
+      const texts = cupNoteInput.value.split(/[,，]/).map((text) => text.trim()).filter(Boolean);
+      texts.forEach((text) => {
+        if (!cupNotes.some((note) => note.text === text)) {
+          cupNotes.push({ color: selectedCupNoteColor, text });
+        }
+      });
+      cupNoteInput.value = "";
+      renderCupNoteList();
     }
 
     function createStepRow(step = {}) {
@@ -300,7 +428,7 @@
     function updateSubmitLabels() {
       forms.beans.querySelector("[type='submit']").textContent = editing.type === "beans" ? "원두 수정" : "원두 저장";
       forms.recipes.querySelector("[type='submit']").textContent = editing.type === "recipes" ? "레시피 수정" : "레시피 저장";
-      forms.tastings.querySelector("[type='submit']").textContent = editing.type === "tastings" ? "맛 기록 수정" : "맛 기록 저장";
+      forms.tastings.querySelector("[type='submit']").textContent = editing.type === "tastings" ? "오늘의 커피 수정" : "오늘의 커피 저장";
     }
 
     function updateSelects() {
@@ -389,7 +517,10 @@
 
     function handleTastingSubmit(event) {
       event.preventDefault();
-      upsert("tastings", formToObject(event.currentTarget));
+      addCupNotes();
+      const payload = formToObject(event.currentTarget);
+      payload.cupNotes = cupNotes.map((note) => ({ ...note }));
+      upsert("tastings", payload);
     }
 
     function editItem(type, id) {
@@ -413,12 +544,13 @@
       }
       if (type === "tastings") {
         document.getElementById("scoreValue").textContent = form.elements.score.value;
+        setCupNotes(item.cupNotes || []);
       }
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
     function deleteItem(type, id) {
-      const label = type === "beans" ? "원두" : type === "recipes" ? "레시피" : "맛 기록";
+      const label = type === "beans" ? "원두" : type === "recipes" ? "레시피" : "오늘의 커피";
       if (!confirm(`${label} 기록을 삭제할까요?`)) return;
       state[type] = state[type].filter((item) => item.id !== id);
       if (type === "beans") {
@@ -550,6 +682,7 @@
           <div class="tags">
             <span class="tag rose">평점 ${escapeHtml(item.score || "-")}/10</span>
           </div>
+          ${item.cupNotes?.length ? `<div class="cupnote-list">${item.cupNotes.map((note) => cupNoteChip(note)).join("")}</div>` : ""}
           <p>${escapeHtml(item.flavor || "")}</p>
           ${item.feedback ? `<p>${escapeHtml(item.feedback)}</p>` : ""}
         </article>
@@ -566,29 +699,8 @@
       list.innerHTML = items.map(renderEntry).join("");
     }
 
-    function renderStats() {
-      document.getElementById("beanCount").textContent = state.beans.length;
-      document.getElementById("recipeCount").textContent = state.recipes.length;
-      document.getElementById("tastingCount").textContent = state.tastings.length;
-
-      const latestBean = state.beans[0];
-      document.getElementById("latestBean").textContent = latestBean ? `${latestBean.roastery} · ${latestBean.beanName}` : "아직 원두가 없습니다";
-
-      const latestRecipe = state.recipes[0];
-      document.getElementById("favoriteRatio").textContent = latestRecipe ? `${latestRecipe.ratio || "비율 미입력"} · ${latestRecipe.dripper}` : "비율 기록 대기";
-
-      const scores = state.tastings.map((item) => Number(item.score)).filter(Number.isFinite);
-      const average = scores.length ? (scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(1) : null;
-      document.getElementById("avgScore").textContent = average ? `평균 ${average}/10` : "평점 대기";
-
-      const latestTasting = state.tastings[0];
-      document.getElementById("latestScore").textContent = latestTasting ? `${latestTasting.score}/10` : "-";
-      document.getElementById("latestFeedback").textContent = latestTasting?.feedback || "새 컵을 기록해보세요";
-    }
-
     function render() {
       updateSelects();
-      renderStats();
       renderList();
     }
 
@@ -603,12 +715,51 @@
     }
 
     function clearAll() {
-      if (!confirm("저장된 모든 원두, 레시피, 맛 기록을 삭제할까요?")) return;
+      if (!confirm("저장된 모든 원두, 레시피, 오늘의 커피를 삭제할까요?")) return;
       state = structuredClone(initialData);
       saveState();
       resetForms();
       render();
     }
+
+    function applyTheme(theme) {
+      const isDark = theme === "dark";
+      document.body.classList.toggle("dark", isDark);
+      document.getElementById("darkModeToggle").checked = isDark;
+    }
+
+    function toggleDarkMode(event) {
+      const theme = event.target.checked ? "dark" : "light";
+      localStorage.setItem(THEME_KEY, theme);
+      applyTheme(theme);
+    }
+
+    const settingsButton = document.getElementById("settingsButton");
+    const settingsMenu = document.getElementById("settingsMenu");
+
+    function setSettingsOpen(open) {
+      settingsMenu.classList.toggle("hidden", !open);
+      settingsButton.setAttribute("aria-expanded", String(open));
+    }
+
+    settingsButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      setSettingsOpen(settingsMenu.classList.contains("hidden"));
+    });
+
+    settingsMenu.addEventListener("click", (event) => {
+      if (event.target.closest("button.settings-item")) setSettingsOpen(false);
+    });
+
+    document.addEventListener("click", (event) => {
+      if (!event.target.closest(".settings")) setSettingsOpen(false);
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") setSettingsOpen(false);
+    });
+
+    document.getElementById("darkModeToggle").addEventListener("change", toggleDarkMode);
 
     document.querySelectorAll("[data-auth-tab]").forEach((button) => {
       button.addEventListener("click", () => setAuthMode(button.dataset.authTab));
@@ -641,6 +792,41 @@
       createStepRow();
     });
 
+    cupNoteWheel.addEventListener("click", (event) => {
+      const segment = event.target.closest(".wheel-seg");
+      if (segment) selectWheelSegment(segment);
+    });
+
+    cupNoteWheel.addEventListener("keydown", (event) => {
+      const segment = event.target.closest(".wheel-seg");
+      if (!segment || (event.key !== "Enter" && event.key !== " ")) return;
+      event.preventDefault();
+      selectWheelSegment(segment);
+    });
+
+    cupNoteCustomColor.addEventListener("input", (event) => {
+      cupNoteWheel.querySelectorAll(".wheel-seg.selected").forEach((item) => item.classList.remove("selected"));
+      selectedCupNoteColor = event.target.value;
+      updateCupNoteColor();
+    });
+
+    cupNoteInput.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" || event.isComposing) return;
+      event.preventDefault();
+      addCupNotes();
+    });
+
+    document.getElementById("addCupNoteButton").addEventListener("click", addCupNotes);
+
+    cupNoteList.addEventListener("click", (event) => {
+      const button = event.target.closest(".cupnote-remove");
+      if (!button) return;
+      cupNotes.splice(Number(button.dataset.index), 1);
+      renderCupNoteList();
+    });
+
+    renderCupNoteWheel();
+
     recipeSteps.addEventListener("input", updateStepsPreview);
 
     recipeSteps.addEventListener("click", (event) => {
@@ -666,6 +852,7 @@
       if (action === "duplicate") duplicateRecipe(id);
     });
 
+    applyTheme(localStorage.getItem(THEME_KEY));
     applyAuthState();
     resetForms();
     render();
