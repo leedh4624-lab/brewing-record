@@ -714,6 +714,56 @@
       URL.revokeObjectURL(url);
     }
 
+    function importData(event) {
+      const file = event.target.files[0];
+      event.target.value = "";
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        let data;
+        try {
+          data = JSON.parse(reader.result);
+        } catch {
+          alert("JSON 파일을 읽을 수 없습니다. 내보내기로 만든 파일인지 확인해 주세요.");
+          return;
+        }
+
+        const types = ["beans", "recipes", "tastings"];
+        if (!data || typeof data !== "object" || !types.some((type) => Array.isArray(data[type]))) {
+          alert("원두, 레시피, 오늘의 커피 기록이 들어 있는 파일이 아닙니다.");
+          return;
+        }
+
+        let added = 0;
+        let updated = 0;
+        types.forEach((type) => {
+          const items = Array.isArray(data[type]) ? data[type] : [];
+          items.forEach((raw) => {
+            if (!raw || typeof raw !== "object" || Array.isArray(raw)) return;
+            const now = new Date().toISOString();
+            const item = { createdAt: now, updatedAt: now, ...raw, id: raw.id ? String(raw.id) : uid() };
+            const index = state[type].findIndex((entry) => entry.id === item.id);
+            if (index >= 0) {
+              state[type][index] = item;
+              updated += 1;
+            } else {
+              state[type].push(item);
+              added += 1;
+            }
+          });
+          state[type].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        });
+
+        saveState();
+        resetForms();
+        render();
+        alert(`가져오기 완료: 새 기록 ${added}개, 업데이트 ${updated}개`);
+      };
+      reader.onerror = () => alert("파일을 읽는 중 오류가 발생했습니다.");
+      reader.readAsText(file);
+    }
+
     function clearAll() {
       if (!confirm("저장된 모든 원두, 레시피, 오늘의 커피를 삭제할까요?")) return;
       state = structuredClone(initialData);
@@ -839,6 +889,8 @@
 
     document.getElementById("newButton").addEventListener("click", resetForms);
     document.getElementById("exportButton").addEventListener("click", exportData);
+    document.getElementById("importButton").addEventListener("click", () => document.getElementById("importFile").click());
+    document.getElementById("importFile").addEventListener("change", importData);
     document.getElementById("clearButton").addEventListener("click", clearAll);
     document.getElementById("searchInput").addEventListener("input", renderList);
     document.getElementById("sortSelect").addEventListener("change", renderList);
